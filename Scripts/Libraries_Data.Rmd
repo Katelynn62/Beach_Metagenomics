@@ -1,0 +1,97 @@
+---
+title: "Script 01: Load Libraries and Data"
+author: "Katelynn"
+date: "2024-06-05"
+output: html_document
+---
+
+For this script, load all libraries used in the analysis, and all changes made to existing dataframes will occur here for the analysis.
+
+Therefore, when we start our analysis, we can just run this entire script and make sure all data is properly updated and called. 
+
+# Load Libraries
+
+```{r}
+library(tidyverse)
+library(readxl)
+```
+
+
+# Load Data
+
+# Cyanobacteria Genera using Metagenomics across Beach Sites. 
+```{r}
+Species <- read_xlsx("Unigenese.absolute.xlsx")
+
+Genus <- read_xlsx("Unigenese.absolute.g.xlsx")
+
+Meta <- read_xlsx("Sample_MetaData.xlsx")
+
+MC <- read_xlsx("MicrocystinConcentrations2023_1.xlsx") %>%
+  select(Site, Date, `MC Concentration`) %>%
+  group_by(Date, Site) %>%
+  summarise(Concentration = mean(`MC Concentration`)) %>%
+  mutate(Concentration = if_else(Concentration < 0.15, 0, Concentration))
+
+Cyano_s <- Species %>%
+  filter(grepl("Cyanobacteriota", Description))
+  
+
+Cyano_g <- Genus %>%
+  filter(grepl("Cyanobacteriota", Description)) %>%
+  select(-Description) %>%
+  pivot_longer(!c(genus), names_to = "Sample_ID", values_to = "Abundance") %>%
+  separate(genus, sep="__", into=c("f", "family", "genus")) 
+
+
+Cyano_g <- left_join(Cyano_g, Meta) %>%
+  rename(Site = `Site ID`) %>%
+  left_join(., MC, by=c("Site", "Date"))
+
+```
+
+
+## Identifying Toxic Genotypes: 
+Kegg = Database where data came from
+
+G = Genes
+G_Counts = Gene Abundance Table. 
+T = Taxonomy
+Stats = Map Quality
+
+```{r}
+## KEGG Annotated Genes
+Kegg_G <- read_xlsx("Unigenes.filter.anno.xls.xlsx")
+
+## KEGG Taxonomy
+Kegg_T <- read_xlsx("Unigenes.KEGG.tax.xlsx") 
+
+Kegg_T <- Kegg_T %>%
+  select(Gene_ID, Taxonomy)
+
+## KEGG Read Stats
+Kegg_Stats <- read_xlsx("Unigenes.filter.xlsx")
+
+Kegg_Stats <- Kegg_Stats %>%
+  select(Query_id, Identity) %>%
+  rename(Gene_ID = Query_id)
+
+## Filtering for MCY Genes
+Kegg_MCY <- Kegg_G %>%
+  filter(grepl("mcy", KO_name))
+
+## Filtering Identified Genes for high quality matches. 
+Kegg_MCY_Tax <- left_join(Kegg_MCY, Kegg_T) %>%
+  left_join(., Kegg_Stats) %>%
+  filter(Identity > 80)
+
+## Selecting mcy gene KO IDs
+KEGG_MCY_KO <- Kegg_MCY %>%
+  select(KO_ID)
+
+## Reading in Kegg gene counts per sample.
+KEGG_G_Counts <- read_xlsx("../Data/Unigenes.absolute.ko.xlsx")
+
+KEGG_MCY_Counts <- left_join(KEGG_MCY_KO, KEGG_G_Counts)
+
+```

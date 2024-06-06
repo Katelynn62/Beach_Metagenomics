@@ -1,0 +1,78 @@
+---
+title: "Preliminary Analysis"
+author: "Katelynn"
+date: "2024-03-06"
+output: html_document
+---
+
+Questions: 
+1. What cyanobacteria have the potential to produce cyanotoxins in Lake Champlain?
+2. How does their abundance vary with non-toxic strains?
+3. Do toxin genes scale with toxin abundance?
+4. What environmental variables (if any) relate to toxin gene abundance/toxic strains?
+
+
+# Question 1: Identifying Cyanobacteria Genera using Metagenomcis
+
+Making a quick bar plot. This will be crazy...so I should use the genus.
+
+```{r}
+Cyano_g_top <- Cyano_g %>%
+  group_by(genus) %>%
+  summarise(Sum = sum(Abundance)) %>%
+  filter(Sum > 15000)
+
+
+Cyano_g %>%
+  filter(Site_Code != "LB") %>%
+  mutate(genus = if_else(genus %in% Cyano_g_top$genus, genus, "Other")) %>%
+  ggplot(aes(x=Date, y=Abundance/.5, group=genus, fill=genus)) +
+  geom_bar(stat = "identity", position = "stack")+
+  theme_classic() +
+  #theme(legend.position = "none") +
+  facet_wrap(~`Site`, nrow = 2, ncol=1) +
+  ylab("Gene Abundance / L")
+
+```
+
+## Identifying Toxin Producers: 
+Because the KEGG database only has microcystin toxins, we are going to focus on Microcystins for my dissertation chapter. My manuscript will do separate bioinformatics to account for other toxin genes.
+
+```{r}
+
+Kegg_MCY_Tax <- left_join(Kegg_MCY, Kegg_T) %>%
+  left_join(., Kegg_Stats) %>%
+  filter(Identity > 80)
+
+Kegg_MCY_Tax
+
+```
+
+Here we can see that all high quality reads map to Microcystis species, suggesting that our only microcystin producer (using the KEGG database) is Microcystis. 
+
+## Quantifying Gene Reads vs. Total Microcystis: 
+
+KEGG Gene Counts: 
+
+```{r}
+
+KEGG_MCY_Counts
+
+```
+
+# Question 3: 
+
+## Cyanotoxins vs. Biomass:
+
+```{r}
+Cyano_g %>%
+  filter(genus == "Microcystis") %>%
+  #na.omit() %>%
+  ggplot(aes(x=Concentration, y=Abundance/.5, color=Site)) +
+  geom_point(size=3, alpha=0.5) +
+  theme_classic() +
+  ylab("Microcystis Gene Abundance / L") +
+  xlab("Microcysin Concentration (ug/L)")
+
+
+```
